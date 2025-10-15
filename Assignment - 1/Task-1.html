@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Electricity Generation Mix (2015 → Latest) — India, USA, UAE, China, Russia, Japan</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121833;
+      --muted: #94a3b8;
+      --text: #e2e8f0;
+      --accent: #93c5fd;
+    }
+    
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .title {
+      font-weight: 800;
+      font-size: 28px;
+      margin: 0 0 8px 0;
+    }
+    
+    .subtitle {
+      color: var(--muted);
+      margin: 0 0 24px 0;
+      font-size: 14px;
+    }
+    
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .controls {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    
+    select {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-bottom: 20px;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+      margin-top: 20px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    
+    th, td {
+      padding: 8px 12px;
+      text-align: right;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    th {
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    td:first-child, th:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: var(--card);
+    }
+    
+    .footnote {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 20px;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">Electricity Generation Mix (2015 → Latest)</h1>
+    <p class="subtitle">India, USA, UAE, China, Russia, Japan - % of total electricity generation</p>
+    
+    <div class="card">
+      <div class="controls">
+        <div>
+          <label for="fuelSelect">Fuel Type:</label>
+          <select id="fuelSelect">
+            <option value="EG.ELC.COAL.ZS">Coal</option>
+            <option value="EG.ELC.NGAS.ZS">Natural Gas</option>
+            <option value="EG.ELC.PETR.ZS">Oil</option>
+            <option value="EG.ELC.HYRO.ZS">Hydro</option>
+            <option value="EG.ELC.NUCL.ZS">Nuclear</option>
+            <option value="EG.ELC.RNWX.ZS">Renewables (excl. hydro)</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="countrySelect">Country (Stacked Chart):</label>
+          <select id="countrySelect">
+            <option value="IND">India</option>
+            <option value="USA">United States</option>
+            <option value="ARE">United Arab Emirates</option>
+            <option value="CHN">China</option>
+            <option value="RUS">Russia</option>
+            <option value="JPN">Japan</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <canvas id="lineChart"></canvas>
+      </div>
+      
+      <div class="chart-container">
+        <canvas id="stackedChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>Data Table</h3>
+      <div class="table-container">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th>Country</th>
+              <th>Fuel Type</th>
+              <th>2015</th>
+              <th>2016</th>
+              <th>2017</th>
+              <th>2018</th>
+              <th>2019</th>
+              <th>2020</th>
+              <th>2021</th>
+              <th>2022</th>
+              <th>2023</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr>
+              <td colspan="11" class="loading">Loading data from World Bank API...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="footnote">
+        <p>Data source: World Bank World Development Indicators, sourced from IEA Statistics © OECD/IEA 2014</p>
+        <p>Note: Some values may be estimates or not available for all years</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const COUNTRIES = [
+      { code: "IND", name: "India" },
+      { code: "USA", name: "United States" },
+      { code: "ARE", name: "United Arab Emirates" },
+      { code: "CHN", name: "China" },
+      { code: "RUS", name: "Russia" },
+      { code: "JPN", name: "Japan" }
+    ];
+
+    const FUEL_INDICATORS = [
+      { code: "EG.ELC.COAL.ZS", name: "Coal", color: "#4E79A7" },
+      { code: "EG.ELC.NGAS.ZS", name: "Natural Gas", color: "#F28E2B" },
+      { code: "EG.ELC.PETR.ZS", name: "Oil", color: "#E15759" },
+      { code: "EG.ELC.HYRO.ZS", name: "Hydro", color: "#76B7B2" },
+      { code: "EG.ELC.NUCL.ZS", name: "Nuclear", color: "#59A14F" },
+      { code: "EG.ELC.RNWX.ZS", name: "Renewables (excl. hydro)", color: "#EDC948" }
+    ];
+
+    // Data storage
+    let allData = {};
+    let lineChart, stackedChart;
+
+    // Fetch data from World Bank API
+    async function fetchWorldBankData(countryCode, indicatorCode) {
+      const url = `https://api.worldbank.org/v2/country/${countryCode}/indicator/${indicatorCode}?format=json&per_page=100&date=2015:2023`;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data[1]) {
+          return data[1]
+            .filter(item => item.value !== null)
+            .map(item => ({
+              year: parseInt(item.date),
+              value: item.value
+            }))
+            .sort((a, b) => a.year - b.year);
+        }
+        return [];
+      } catch (error) {
+        console.error(`Error fetching data for ${countryCode} - ${indicatorCode}:`, error);
+        return [];
+      }
+    }
+
+    // Load all data
+    async function loadAllData() {
+      const loadingRow = document.getElementById('tableBody').querySelector('tr');
+      loadingRow.innerHTML = '<td colspan="11">Loading data... This may take a moment</td>';
+      
+      for (const country of COUNTRIES) {
+        allData[country.code] = {};
+        
+        for (const indicator of FUEL_INDICATORS) {
+          allData[country.code][indicator.code] = await fetchWorldBankData(country.code, indicator.code);
+        }
+      }
+      
+      renderCharts();
+      renderDataTable();
+    }
+
+    // Create line chart
+    function createLineChart(selectedFuel) {
+      const ctx = document.getElementById('lineChart').getContext('2d');
+      const datasets = [];
+      
+      COUNTRIES.forEach(country => {
+        const countryData = allData[country.code][selectedFuel];
+        if (countryData && countryData.length > 0) {
+          const values = [];
+          for (let year = 2015; year <= 2023; year++) {
+            const dataPoint = countryData.find(d => d.year === year);
+            values.push(dataPoint ? dataPoint.value : null);
+          }
+          
+          const indicator = FUEL_INDICATORS.find(i => i.code === selectedFuel);
+          
+          datasets.push({
+            label: country.name,
+            data: values,
+            borderColor: indicator.color,
+            backgroundColor: indicator.color + '20',
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.3,
+            fill: false
+          });
+        }
+      });
+      
+      if (lineChart) {
+        lineChart.destroy();
+      }
+      
+      lineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'],
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: FUEL_INDICATORS.find(i => i.code === selectedFuel).name + ' Share of Electricity Generation',
+              color: '#e2e8f0',
+              font: { size: 16 }
+            },
+            legend: {
+              position: 'top',
+              labels: { color: '#e2e8f0' }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#94a3b8' }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#94a3b8' },
+              title: {
+                display: true,
+                text: '% of Total Electricity',
+                color: '#94a3b8'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Create stacked chart
+    function createStackedChart(selectedCountry) {
+      const ctx = document.getElementById('stackedChart').getContext('2d');
+      const datasets = [];
+      
+      FUEL_INDICATORS.forEach(indicator => {
+        const countryData = allData[selectedCountry][indicator.code];
+        if (countryData && countryData.length > 0) {
+          const values = [];
+          for (let year = 2015; year <= 2023; year++) {
+            const dataPoint = countryData.find(d => d.year === year);
+            values.push(dataPoint ? dataPoint.value : 0);
+          }
+          
+          datasets.push({
+            label: indicator.name,
+            data: values,
+            backgroundColor: indicator.color,
+            borderWidth: 0
+          });
+        }
+      });
+      
+      if (stackedChart) {
+        stackedChart.destroy();
+      }
+      
+      stackedChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'],
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: COUNTRIES.find(c => c.code === selectedCountry).name + ' Electricity Generation Mix',
+              color: '#e2e8f0',
+              font: { size: 16 }
+            },
+            legend: {
+              position: 'top',
+              labels: { color: '#e2e8f0' }
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#94a3b8' }
+            },
+            y: {
+              stacked: true,
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#94a3b8' },
+              title: {
+                display: true,
+                text: '% of Total Electricity',
+                color: '#94a3b8'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Render data table
+    function renderDataTable() {
+      const tableBody = document.getElementById('tableBody');
+      tableBody.innerHTML = '';
+      
+      COUNTRIES.forEach(country => {
+        FUEL_INDICATORS.forEach(indicator => {
+          const row = document.createElement('tr');
+          const countryData = allData[country.code][indicator.code];
+          
+          // Country and fuel type cells
+          row.innerHTML = `<td>${country.name}</td><td>${indicator.name}</td>`;
+          
+          // Year cells
+          for (let year = 2015; year <= 2023; year++) {
+            const dataPoint = countryData.find(d => d.year === year);
+            row.innerHTML += `<td>${dataPoint ? dataPoint.value.toFixed(1) : '-'}</td>`;
+          }
+          
+          tableBody.appendChild(row);
+        });
+      });
+    }
+
+    // Initialize charts and event listeners
+    function renderCharts() {
+      const fuelSelect = document.getElementById('fuelSelect');
+      const countrySelect = document.getElementById('countrySelect');
+      
+      createLineChart(fuelSelect.value);
+      createStackedChart(countrySelect.value);
+      
+      fuelSelect.addEventListener('change', () => {
+        createLineChart(fuelSelect.value);
+      });
+      
+      countrySelect.addEventListener('change', () => {
+        createStackedChart(countrySelect.value);
+      });
+    }
+
+    // Initialize the dashboard
+    document.addEventListener('DOMContentLoaded', loadAllData);
+  </script>
+</body>
+</html>
